@@ -78,9 +78,9 @@ noisyIndexes = [0, 7, 12, 15, 16, 17]
 noisyFeatures= generateColumnsNamesFromIndexes(noisyIndexes)
 dataset_prov = dataset.drop(columns=noisyFeatures)
 
-reg_prov = RandomForestRegressor(100, random_state=rs)
+reg_prov = RandomForestRegressor(100, random_state=rs, n_jobs=-1)
 reg_prov.fit(dataset_prov.iloc[:, 2:], dataset_prov.loc[:, 'x':'y'])
-sorted_features = sorted(zip(dataset_prov[:, 2:].columns, reg_prov.feature_importances_), key=lambda x: x[1], reverse=True)
+sorted_features = sorted(zip(dataset_prov.iloc[:, 2:].columns, reg_prov.feature_importances_), key=lambda x: x[1], reverse=True)
 
 print("Top features:")
 print(sorted_features)
@@ -126,7 +126,6 @@ Y_ev = grid_search.predict(X_ev_std)
 #generate submission file
 output = pd.DataFrame()
 Y_ev_df = pd.DataFrame(Y_ev)
-display(Y_ev_df)
 output['Predicted'] = (Y_ev_df[0]).astype(str) + "|" + (Y_ev_df[1]).astype(str)
 output.to_csv("submission_MPL.csv", index_label="Id")
 

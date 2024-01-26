@@ -76,9 +76,9 @@ noisyIndexes = [0, 7, 12, 15, 16, 17]
 noisyFeatures= generateColumnsNamesFromIndexes(noisyIndexes)
 dataset_prov = dataset.drop(columns=noisyFeatures)
 
-reg_prov = RandomForestRegressor(100, random_state=rs)
+reg_prov = RandomForestRegressor(100, random_state=rs, n_jobs=-1)
 reg_prov.fit(dataset_prov.iloc[:, 2:], dataset_prov.loc[:, 'x':'y'])
-sorted_features = sorted(zip(dataset_prov[:, 2:].columns, reg_prov.feature_importances_), key=lambda x: x[1], reverse=True)
+sorted_features = sorted(zip(dataset_prov.iloc[:, 2:].columns, reg_prov.feature_importances_), key=lambda x: x[1], reverse=True)
 
 print("Top features:")
 print(sorted_features)
@@ -93,7 +93,7 @@ Y_df = dataset_shuff[regressionTargets]
 
 #grid search
 reg = RandomForestRegressor(random_state=rs)
-param_grid = {
+params = {
     "n_estimators": [125, 150, 300, 500, 1000],
     "max_features": ["sqrt", "log2", None], 
     "random_state": [42],
@@ -101,58 +101,24 @@ param_grid = {
 }
 
 grid_search = GridSearchCV(reg, param_grid=params, scoring=euc_dist_scorer, verbose=3, n_jobs=-1) #uses multiple jobs
-grid_search.fit(X_std, Y_df.values)
+grid_search.fit(X_df.values, Y_df.values)
 
 print(grid_search.best_params_)
 print(-grid_search.best_score_)
 
 #save grid search results to file
 gs_df = pd.DataFrame(grid_search.cv_results_)
-gs_df.to_csv("MLP_GS_results.csv")
+gs_df.to_csv("RF_GS_results.csv")
 
 #load evaluation set
 evaluation = pd.read_csv(EVALUATIONPATH, index_col="Id")
 
 #apply model
 X_ev = evaluation[featuresLabels]
-Y_ev = grid_search.predict(X_ev)
+Y_ev = grid_search.predict(X_ev.values)
 
 #generate submission file
 output = pd.DataFrame()
 Y_ev_df = pd.DataFrame(Y_ev)
-display(Y_ev_df)
 output['Predicted'] = (Y_ev_df[0]).astype(str) + "|" + (Y_ev_df[1]).astype(str)
-output.to_csv("submission_MPL.csv", index_label="Id")
-
-#plot gridsearch scores
-layer_sizes = [x["hidden_layer_sizes"] for x in grid_search.cv_results_["params"]]
-activations = unique([x["activation"] for x in grid_search.cv_results_["params"]])
-scores = -grid_search.cv_results_["mean_test_score"].reshape(len(activations), -1).T
-plt.figure(figsize=(6,4))
-for i, marker in zip(range(scores.shape[0]), ['o', '^']):
-    plt.plot(scores[:, i], marker=marker)
-plt.xticks(range(0, scores.shape[0]), layer_sizes[:scores.shape[0]], rotation=45, fontsize=12)
-plt.yticks(fontsize=12)
-plt.xlabel("Hidden layer sizes", fontsize=14)
-plt.ylabel("Mean Euclidean distance", fontsize=14)
-legend = plt.legend(activations, title="Activation function", fontsize=12)
-plt.setp(legend.get_title(),fontsize=14)
-plt.tight_layout()
-plt.savefig("mlp_gridserach_scores.pdf", format="pdf")
-
-#plot gridsearch fit times
-layer_sizes = [x["hidden_layer_sizes"] for x in grid_search.cv_results_["params"]]
-activations = unique([x["activation"] for x in grid_search.cv_results_["params"]])
-times = grid_search.cv_results_["mean_fit_time"].reshape(len(activations), -1).T
-plt.figure(figsize=(6,4))
-plt.yscale("log")
-for i, marker in zip(range(times.shape[0]), ['o', '^']):
-    plt.plot(times[:, i], marker=marker)
-plt.xticks(range(0, times.shape[0]), layer_sizes[:times.shape[0]], rotation=45, fontsize=12)
-plt.yticks(fontsize=12)
-plt.xlabel("Hidden layer sizes", fontsize=14)
-plt.ylabel("Mean fit time [s]", fontsize=14)
-legend = plt.legend(activations, title="Activation function", fontsize=12)
-plt.setp(legend.get_title(),fontsize=14)
-plt.tight_layout()
-plt.savefig("mlp_gridserach_fit_times.pdf", format="pdf")
+output.to_csv("submission_RF.csv", index_label="Id")
